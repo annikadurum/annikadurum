@@ -1,6 +1,6 @@
 # Hi, I'm Annika 👋
 
-I'm a Senior Technical Writer and Editor with 10+ years of experience translating complex technical concepts into clear, user-focused documentation across SaaS, biotech, and engineering industries. Proven leader in docs-as-code environments, having spearheaded full-scale documentation audits and rebrands (400+ pages), built self-serve onboarding content that replaced live white-glove sessions, and documented emerging products and features from beta through general availability. Adept at bridging the gap between engineering, product, and support teams to close documentation gaps and improve customer experience. Known for mentoring writers, owning style guides, and championing inclusive workplace culture through ERG leadership roles.
+Senior Technical Writer and Editor with 10+ years of experience in SaaS, biotech, and engineering. I lead documentation in docs-as-code environments, including an audit and rebrand of 400+ pages and self-serve onboarding content that replaced live white-glove sessions. I document products from beta through general availability, working with engineering, product, and support to close documentation gaps. I also mentor writers, own style guides, and co-lead an employee resource group.
 
 ## What I do
 
