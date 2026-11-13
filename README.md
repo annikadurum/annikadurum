@@ -19,9 +19,9 @@ Technical editing · Style guide development (Microsoft Manual of Style, Standar
 
 ## Selected work
 
-- [1Password Developer Environments](environments.html)
-- [Access secrets from 1Password using local .env files](environments-local-env-file.html)
-- [1Password SaaS Manager Administrator Dashboard](saas-manager-admin-dashboard.html)
+- [1Password Developer Environments](docs/1passwordenvironments.pdf)
+- [Access secrets from 1Password using local .env files](docs/localenvfile1passwordenvironments.pdfenvironments-local-env-file.html)
+- [1Password SaaS Manager Administrator Dashboard](docs/1passwordsaasmanageradmindash.pdf)
 - [Illumina NextSeq 1000 and 2000 Sequencing System](Nextseq-1000-2000segment.pdf)
 
 ## Beyond docs
