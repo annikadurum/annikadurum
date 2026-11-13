@@ -1,0 +1,185 @@
+<html style><!--
+ Page saved with SingleFile 
+ url: file:///Users/annika/Documents/Work/doc-archiver/archive.sh 
+ saved date: Thu Nov 12 2026 18:22:31 GMT-0700 (Mountain Standard Time)
+--><meta charset=utf-8><meta name=color-scheme content="light dark"><meta name=referrer content=no-referrer><link type=image/x-icon rel="shortcut icon" href=data:,><meta http-equiv=content-security-policy content="default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:; form-action 'none'; base-uri 'none';"><body><pre style=word-wrap:break-word;white-space:pre-wrap>#!/usr/bin/env bash
+# doc-archiver: save web pages as standalone, self-contained .html files
+# (images, CSS, fonts and layout embedded) using SingleFile.
+#
+# Usage:
+#   ./archive.sh [options] URL [URL ...]
+#
+# Options:
+#   -o DIR     Output folder (default: ./archive)
+#   -i         Treat each URL as an INDEX page (category, table of contents,
+#              author page...): save every same-site article it links to
+#   -p PREFIX  With -i, only keep links whose path starts with PREFIX (e.g. /cs/)
+#   -l FILE    Read URLs from a text file, one per line
+#   -w N       Parallel browser workers (default: 4)
+#   -x FILE    Also inject this extra fixup (.js or .css) into every saved page.
+#              (Site fixups in fixups/ apply automatically; see README.)
+#   -h         Help
+#
+# Re-running is safe: pages that are already saved are skipped.
+
+set -uo pipefail
+
+OUT="./archive"; INDEX=0; PREFIX=""; WORKERS=4; FIXUP=""; URLS=()
+TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &amp;&amp; pwd)"
+
+usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+while getopts "o:ip:l:w:x:h" opt; do
+  case "$opt" in
+    o) OUT="$OPTARG" ;;
+    i) INDEX=1 ;;
+    p) PREFIX="$OPTARG" ;;
+    l) while IFS= read -r line; do [ -n "$line" ] &amp;&amp; URLS+=("$line"); done &lt; "$OPTARG" ;;
+    w) WORKERS="$OPTARG" ;;
+    x) FIXUP="$OPTARG" ;;
+    h) usage 0 ;;
+    *) usage 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+URLS+=("$@")
+[ "${#URLS[@]}" -gt 0 ] || usage 1
+
+# --- 1. Requirements -------------------------------------------------------
+command -v node &gt;/dev/null &amp;&amp; command -v npm &gt;/dev/null || {
+  echo "Node.js is required. Install it from https://nodejs.org (or: brew install node) and re-run." &gt;&amp;2
+  exit 1
+}
+
+if [ -z "${BROWSER:-}" ]; then
+  for p in \
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+    "/Applications/Chromium.app/Contents/MacOS/Chromium" \
+    /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium \
+    /usr/bin/chromium-browser /usr/bin/brave-browser /usr/bin/microsoft-edge; do
+    [ -x "$p" ] &amp;&amp; BROWSER="$p" &amp;&amp; break
+  done
+fi
+[ -n "${BROWSER:-}" ] || {
+  echo "No Chrome/Brave/Edge/Chromium found. Install one, or set BROWSER=/path/to/browser." &gt;&amp;2
+  exit 1
+}
+
+SF="$TOOL_DIR/node_modules/.bin/single-file"
+if [ ! -x "$SF" ]; then
+  echo "Installing single-file-cli (one time)..."
+  (cd "$TOOL_DIR" &amp;&amp; npm install --silent --no-audit --no-fund single-file-cli) || exit 1
+fi
+
+# --- 2. Build the URL list -------------------------------------------------
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+: &gt; "$TMP/all.txt"
+
+origin_of() { echo "$1" | sed -E 's#^(https?://[^/]+).*#\1#'; }
+
+for u in "${URLS[@]}"; do
+  if [ "$INDEX" -eq 1 ]; then
+    origin="$(origin_of "$u")"
+    echo "Reading links from $u"
+    curl -fsSL --max-time 30 "$u" \
+      | grep -oE "href=(\"[^\"]*\"|'[^']*'|[^ &gt;]+)" \
+      | sed -E "s/^href=//; s/^[\"']//; s/[\"']$//; s/[#?].*$//" \
+      | grep -E "^(/[^/]|${origin//./\\.}/)" \
+      | sed -E "s#^/#${origin}/#" \
+      | grep -Ev '\.(png|jpe?g|gif|svg|webp|css|js|ico|pdf|zip|xml|json|woff2?)$' \
+      | grep -E "^${origin//./\\.}${PREFIX}" \
+      | sed -E 's#([^/])$#\1/#' &gt;&gt; "$TMP/all.txt"
+  else
+    echo "$u" &gt;&gt; "$TMP/all.txt"
+  fi
+done
+sort -u "$TMP/all.txt" -o "$TMP/all.txt"
+
+# Output name for a URL: path with "/" -&gt; "-"; site root -&gt; "index"
+name_for() {
+  local n
+  n="$(echo "$1" | sed -E 's#^https?://[^/]+##; s#[?\#].*$##; s#^/+##; s#/+$##; s#[/_]#-#g')"
+  echo "${n:-index}.html"
+}
+
+mkdir -p "$OUT"
+: &gt; "$TMP/todo.txt"; skipped=0
+while IFS= read -r u; do
+  if [ -s "$OUT/$(name_for "$u")" ]; then skipped=$((skipped + 1)); else echo "$u" &gt;&gt; "$TMP/todo.txt"; fi
+done &lt; "$TMP/all.txt"
+
+total="$(wc -l &lt; "$TMP/all.txt" | tr -d ' ')"; todo="$(wc -l &lt; "$TMP/todo.txt" | tr -d ' ')"
+echo "$total pages found, $skipped already saved, $todo to download -&gt; $OUT"
+
+# --- 3. Download -----------------------------------------------------------
+if [ "$todo" -gt 0 ]; then
+  "$SF" --urls-file "$TMP/todo.txt" \
+        --output-directory "$OUT" \
+        --filename-template "{url-pathname-flat}.html" \
+        --filename-conflict-action overwrite \
+        --browser-executable-path "$BROWSER" \
+        --browser-headless true \
+        --browser-load-max-time 45000 \
+        --browser-capture-max-time 45000 \
+        --max-parallel-workers "$WORKERS" 2&gt;&amp;1 | sed -E 's/^/  /'
+
+  # SingleFile names files _like_this_.html; tidy to like-this.html
+  for f in "$OUT"/_*.html; do
+    [ -e "$f" ] || continue
+    b="$(basename "$f" .html)"; b="${b#_}"; b="${b%_}"; b="${b//_/-}"
+    mv "$f" "$OUT/${b:-index}.html"
+  done
+fi
+
+# --- 4. Fixups -------------------------------------------------------------
+# SingleFile strips scripts, so page behaviour that depended on them is frozen
+# (for example, a floating table of contents). A fixup is a small .js/.css file
+# added back to each saved page. Files in fixups/ named after a site's hostname
+# (fixups/support.1password.com.js, or support.1password.com.something.js) are applied automatically to pages from that
+# site. -x adds one more file to every page. Safe to repeat.
+inject() {  # inject &lt;saved-page&gt; &lt;fixup-file&gt;
+  local page="$1" fx="$2" kind name
+  case "$fx" in *.css) kind=css ;; *.js) kind=js ;; *) return 1 ;; esac
+  name="$(basename "$fx")"
+  grep -q "data-doc-archiver-fixup=\"$name\"" "$page" &amp;&amp; return 1
+  FIXUP_FILE="$fx" FIXUP_KIND="$kind" FIXUP_NAME="$name" perl -0777 -i -pe '
+    BEGIN { local $/; open(F, "&lt;", $ENV{FIXUP_FILE}) or die; $c = &lt;F&gt;; close F;
+            $tag = $ENV{FIXUP_KIND} eq "css" ? "style" : "script";
+            $block = "&lt;$tag data-doc-archiver-fixup=\"$ENV{FIXUP_NAME}\"&gt;\n$c\n&lt;/$tag&gt;\n"; }
+    s{(.*)&lt;/body&gt;}{$1$block&lt;/body&gt;}s or s{$}{$block};
+  ' "$page"
+}
+
+if [ -n "$FIXUP" ]; then
+  [ -f "$FIXUP" ] || { echo "Fixup file not found: $FIXUP" &gt;&amp;2; exit 1; }
+  case "$FIXUP" in *.css|*.js) ;; *) echo "-x expects a .js or .css file" &gt;&amp;2; exit 1 ;; esac
+fi
+
+if [ -n "$FIXUP" ] || ls "$TOOL_DIR"/fixups/* &gt;/dev/null 2&gt;&amp;1; then
+  command -v perl &gt;/dev/null || { echo "perl is required for fixups" &gt;&amp;2; exit 1; }
+  applied=0
+  while IFS= read -r u; do
+    f="$OUT/$(name_for "$u")"
+    [ -s "$f" ] || continue
+    host="$(echo "$u" | sed -E 's#^https?://([^/:]+).*#\1#')"
+    for fx in "$TOOL_DIR/fixups/$host".js "$TOOL_DIR/fixups/$host".css "$TOOL_DIR/fixups/$host".*.js "$TOOL_DIR/fixups/$host".*.css "$FIXUP"; do
+      [ -n "$fx" ] &amp;&amp; [ -f "$fx" ] &amp;&amp; inject "$f" "$fx" &amp;&amp; applied=$((applied + 1))
+    done
+  done &lt; "$TMP/all.txt"
+  [ "$applied" -gt 0 ] &amp;&amp; echo "Fixups applied: $applied"
+fi
+
+# --- 5. Report -------------------------------------------------------------
+missing=0
+while IFS= read -r u; do
+  if [ ! -s "$OUT/$(name_for "$u")" ]; then
+    [ "$missing" -eq 0 ] &amp;&amp; echo &amp;&amp; echo "These pages failed (re-run the same command to retry):"
+    echo "  $u"; missing=$((missing + 1))
+  fi
+done &lt; "$TMP/all.txt"
+echo
+echo "Done: $((total - missing)) of $total saved in $OUT"
+[ "$missing" -eq 0 ]
+</pre>
