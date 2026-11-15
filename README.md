@@ -24,6 +24,10 @@ Technical editing · Style guide development (Microsoft Manual of Style, Standar
 - [1Password SaaS Manager Administrator Dashboard](https://annikadurum.github.io/annikadurum/saas-manager-admin-dashboard.html)
 - [Illumina NextSeq 1000 and 2000 Sequencing System](docs/Nextseq-1000-2000segment.pdf)
 
+## Preview locally
+
+Run `./scripts/preview.sh` from the repository to preview the HTML work examples. Open `http://127.0.0.1:8000/environments.html` or `http://127.0.0.1:8000/environments-local-env-file.html` in your browser. Press Ctrl-C in the terminal to stop the server. To use a different port, run `./scripts/preview.sh 8080`.
+
 ## Beyond docs
 
 I'm also an author and visual artist. You can see more of my creative work at [annikadurum.com](annikadurum.com).
