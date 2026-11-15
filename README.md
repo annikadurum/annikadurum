@@ -19,9 +19,9 @@ Technical editing · Style guide development (Microsoft Manual of Style, Standar
 
 ## Selected work
 
-- [1Password Developer Environments](https://annikadurum.github.io/annikadurum/docs/environments.html)
-- [Access secrets from 1Password using local .env files](https://annikadurum.github.io/annikadurum/docs/environments-local-env-file.html)
-- [1Password SaaS Manager Administrator Dashboard](https://annikadurum.github.io/annikadurum/docs/saas-manager-admin-dashboard.html)
+- [1Password Developer Environments](https://annikadurum.github.io/annikadurum/environments.html)
+- [Access secrets from 1Password using local .env files](https://annikadurum.github.io/annikadurum/environments-local-env-file.html)
+- [1Password SaaS Manager Administrator Dashboard](https://annikadurum.github.io/annikadurum/saas-manager-admin-dashboard.html)
 - [Illumina NextSeq 1000 and 2000 Sequencing System](docs/Nextseq-1000-2000segment.pdf)
 
 ## Beyond docs
